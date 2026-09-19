@@ -12,7 +12,7 @@ Our person had a bit o' the knowing of the bits, and so he sat and pondered and 
 
 And the thing he did kinda worked, but he did not find peace.
 
-Then he sat and pondered and eventually said "I shall try and make this thing more portable, and useful to other people. And in being useful to other people I will find happiness" and got to work. He also acquired a clanker subscription[^1] so that work wasn't really heavy.
+Then he sat and pondered and eventually said "I shall try and make this thing more portable, and useful to other people. And in being useful to other people I will find happiness" and got to work. He also acquired a clanker subscription[^1] so that work wasn't terribly arduous.
 
 This is the result. Alas, it will not bring you peace nor happiness, but maybe, just maybe, it will afford you a little solace from that annoying ad.
 
