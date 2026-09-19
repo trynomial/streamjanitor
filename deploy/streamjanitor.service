@@ -1,0 +1,25 @@
+# Template: deploy/install-pi.sh fills in the @...@ placeholders and installs it as
+# /etc/systemd/system/streamjanitor.service (this header, up to the blank line, is dropped).
+
+# Runs the web interface in On Air mode, which starts and supervises the live daemon.
+[Unit]
+Description=StreamJanitor (web On Air + live splicer: loopback -> S/PDIF)
+After=sound.target network-online.target
+Wants=network-online.target
+Before=mopidy.service
+
+[Service]
+Type=simple
+User=@USER@
+SupplementaryGroups=audio
+Environment=PYTHONUNBUFFERED=1
+Environment=HOME=@HOME@
+ExecStart=@BIN@ web --host @HOST@ --port @PORT@ --onair @CONFIG@
+Nice=-10
+Restart=always
+RestartSec=3
+# Stop the daemon together with the web server.
+KillMode=control-group
+
+[Install]
+WantedBy=multi-user.target

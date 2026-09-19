@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StreamJanitor</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📻</text></svg>">
+<style>
+  :root {
+    --bg: #f6f5f2; --panel: #ffffff; --text: #1d1d1f; --muted: #6b6b70; --line: #e2e0db;
+    --accent: #2f6fdb; --accent-text: #ffffff; --ok: #1f8a4c; --warn: #b7791f; --bad: #c0392b;
+    --input: #ffffff; --code: #f1efea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151517; --panel: #1f1f22; --text: #ececef; --muted: #9a9aa2; --line: #333338;
+      --accent: #5b8ff0; --accent-text: #0d0d10; --ok: #3cbf74; --warn: #e0a642; --bad: #ef6b5b;
+      --input: #19191c; --code: #19191c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: center; gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--line);
+           background: var(--panel); position: sticky; top: 0; z-index: 2; flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0; font-weight: 650; }
+  nav { display: flex; gap: 4px; }
+  nav button { background: none; color: var(--muted); border: none; padding: 6px 12px; border-radius: 8px;
+               font: inherit; cursor: pointer; }
+  nav button.active { background: var(--code); color: var(--text); font-weight: 600; }
+  main { max-width: 1000px; margin: 0 auto; padding: 16px; }
+  section.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+                  padding: 16px; margin-bottom: 16px; }
+  h2 { font-size: 15px; margin: 0 0 12px; font-weight: 650; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  label.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  input[type=text], input[type=number] { font: inherit; color: var(--text); background: var(--input);
+       border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; width: 100%; }
+  input[type=file] { font-size: 13px; color: var(--muted); max-width: 100%; }
+  select { font: inherit; color: var(--text); background: var(--input); border: 1px solid var(--line);
+           border-radius: 8px; padding: 7px 9px; width: 100%; }
+  .cal-result { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 12px; }
+  .cal-result h3 { font-size: 14px; margin: 0 0 6px; }
+  .btn { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--text);
+         border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+  .btn:hover { border-color: var(--muted); }
+  .btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .btn.danger { color: var(--bad); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  button.link { background: none; border: none; color: var(--accent); font: inherit; cursor: pointer; padding: 2px 4px; }
+  button.link.danger { color: var(--bad); }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase;
+       letter-spacing: .03em; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--line); }
+  .pill.ok { color: var(--ok); border-color: var(--ok); }
+  .pill.warn { color: var(--warn); border-color: var(--warn); }
+  .pill.bad { color: var(--bad); border-color: var(--bad); }
+  .msg { margin-top: 10px; font-size: 13px; }
+  .msg.error { color: var(--bad); }
+  .msg.warn { color: var(--warn); }
+  .msg.ok { color: var(--ok); }
+  .editor { background: var(--code); border-radius: 10px; padding: 12px; margin-top: 8px; }
+  .status-big { font-size: 20px; font-weight: 650; display: flex; align-items: center; gap: 10px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--muted); display: inline-block; }
+  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 12px; }
+  .stat { background: var(--code); border-radius: 8px; padding: 8px 10px; }
+  .stat b { display: block; font-size: 16px; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 12px; color: var(--muted); }
+  .switch { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .switch button { font: inherit; border: none; background: var(--panel); color: var(--muted); padding: 8px 14px; cursor: pointer; }
+  .switch button.on { background: var(--accent); color: var(--accent-text); font-weight: 600; }
+  pre.log { background: var(--code); border-radius: 8px; padding: 10px; font-size: 12px; max-height: 320px;
+            overflow: auto; white-space: pre-wrap; word-break: break-word; margin: 0; }
+  audio { height: 32px; max-width: 100%; margin-top: 6px; display: block; }
+  .hidden { display: none !important; }
+  .mt { margin-top: 12px; }
+  .mt-s { margin-top: 8px; }
+  .mb { margin-bottom: 12px; }
+  .spread { justify-content: space-between; }
+  .nowrap { white-space: nowrap; }
+  label.btn { display: inline-block; }
+  .progress { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin-top: 10px; }
+  .progress > div { height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+  @media (max-width: 600px) { main { padding: 12px; } section.panel { padding: 12px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>📻 StreamJanitor</h1>
+  <nav id="tabs"></nav>
+</header>
+<main>
+  <!-- ============ STUDIO ============ -->
+  <div id="view-studio" class="hidden">
+    <section class="panel">
+      <h2>Library</h2>
+      <div class="sub" id="studio-path"></div>
+      <div class="row mt">
+        <button class="btn" onclick="download('studio', true)">Export complete zip</button>
+        <button class="btn" onclick="download('studio', false)" title="Without the source audio: only what the Pi needs">Export for On Air (light)</button>
+        <label class="btn">Import zip/tar…
+          <input type="file" class="hidden" accept=".zip,.tar,.tgz,.tar.gz" onchange="importLib('studio', this)">
+        </label>
+      </div>
+      <div class="msg" id="studio-lib-msg"></div>
+    </section>
+
+    <section class="panel">
+      <h2>New pair</h2>
+      <div class="row mb">
+        <div class="switch">
+          <button id="mode-clip" class="on" onclick="setMode('clip')">Ready-cut target</button>
+          <button id="mode-episode" onclick="setMode('episode')">From an episode</button>
+        </div>
+      </div>
+      <div class="grid">
+        <label class="field">Name<input type="text" id="new-name" placeholder="e.g. Insurance ad"></label>
+        <label class="field"><span id="new-file-label">Target audio (already cut)</span>
+          <input type="file" id="new-file" accept="audio/*"></label>
+        <label class="field episode-only hidden">Target start<input type="text" id="new-start" placeholder="h:mm:ss.s"></label>
+        <label class="field episode-only hidden">Target end<input type="text" id="new-end" placeholder="h:mm:ss.s"></label>
+        <label class="field">Replacement (optional: none = silence)<input type="file" id="new-repl" accept="audio/*"></label>
+        <label class="field">Match threshold τ<input type="number" id="new-tau" value="0.60" min="0.05" max="1" step="0.01"></label>
+        <label class="field">Head (seconds used for recognition)<input type="number" id="new-head" value="3" min="0.5" max="30" step="0.5"></label>
+      </div>
+      <div class="sub mt-s"><b>Match threshold τ</b> (0–1): how closely the live audio must match the target's opening seconds (the <i>head</i>) before the target is cut. Higher means fewer false cuts, but a target that sounds slightly different on air may be missed; lower catches more, but risks cutting something else. 0.60 is a reasonable start; <code>streamjanitor calibrate</code> suggests a value from a whole episode.</div>
+      <div class="sub mt-s">The target audio must start exactly where the target starts (±0.1 s): the cut ends at start + duration. A replacement longer than the target is shortened and faded out.</div>
+      <div class="row mt"><button class="btn primary" id="new-go" onclick="createPair()">Create pair</button></div>
+      <div class="progress hidden" id="new-progress"><div></div></div>
+      <div class="msg" id="new-msg"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Pairs</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Name</th><th>Duration</th><th>Head</th><th title="Match threshold: see New pair">τ</th><th>Replacement</th><th>State</th><th></th></tr></thead>
+        <tbody id="studio-pairs"></tbody>
+      </table></div>
+      <div class="sub" id="studio-empty">No pairs yet: create one above, or import a library.</div>
+    </section>
+
+    <section class="panel" id="cal-panel">
+      <h2>Calibrate</h2>
+      <div class="sub">Scan a whole episode with a pair's template: see where the target airs, how well it
+        matches there, the best match anywhere else, and a suggested τ between the two. Use an episode in
+        which the target airs, ideally not the one you cut it from (that one scores an unrealistic ~1.0).</div>
+      <div class="grid mt">
+        <label class="field">Pair<select id="cal-pair"></select></label>
+        <label class="field">Whole episode<input type="file" id="cal-file" accept="audio/*"></label>
+      </div>
+      <div class="row mt"><button class="btn primary" id="cal-go" onclick="runCalibration()">Calibrate</button></div>
+      <div class="progress hidden" id="cal-progress"><div></div></div>
+      <div class="msg" id="cal-msg"></div>
+      <div id="cal-results"></div>
+    </section>
+  </div>
+
+  <!-- ============ ON AIR ============ -->
+  <div id="view-onair" class="hidden">
+    <section class="panel">
+      <div class="row spread">
+        <div class="status-big"><span class="dot" id="r-dot"></span><span id="r-state">…</span></div>
+        <div class="row">
+          <button class="btn" onclick="onairAction('start')">Start</button>
+          <button class="btn" onclick="onairAction('restart')">Restart</button>
+          <button class="btn danger" onclick="if(confirm('Stopping the daemon stops the radio. Continue?')) onairAction('stop')">Stop</button>
+        </div>
+      </div>
+      <div class="row mt">
+        <div class="switch">
+          <button id="r-mode-replace" onclick="setOnAirMode('replace')">Replace</button>
+          <button id="r-mode-report" onclick="setOnAirMode('report')">Report only</button>
+          <button id="r-mode-passthrough" onclick="setOnAirMode('passthrough')">Pass-through</button>
+        </div>
+        <span class="sub" id="r-mode-note"></span>
+      </div>
+      <div class="stats" id="r-stats"></div>
+      <div class="msg" id="r-msg"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Pairs</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Enabled</th><th>Name</th><th>Replacement</th><th>Loaded</th></tr></thead>
+        <tbody id="onair-pairs"></tbody>
+      </table></div>
+      <div class="sub" id="onair-nolib"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Recent detections</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Time</th><th>Pair</th><th>Score</th><th>Outcome</th></tr></thead>
+        <tbody id="onair-history"></tbody>
+      </table></div>
+      <div class="sub" id="onair-history-empty">None yet.</div>
+    </section>
+
+    <section class="panel">
+      <h2>Library</h2>
+      <div class="sub" id="onair-path"></div>
+      <div class="row mt">
+        <button class="btn" onclick="download('onair', true)">Export zip</button>
+        <label class="btn">Import zip/tar…
+          <input type="file" class="hidden" accept=".zip,.tar,.tgz,.tar.gz" onchange="importLib('onair', this)">
+        </label>
+      </div>
+      <div class="msg" id="onair-lib-msg"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Log</h2>
+      <pre class="log" id="r-log"></pre>
+    </section>
+  </div>
+</main>
+
+<script>
+const H = {"X-Requested-With": "streamjanitor"};
+let info = null, mode = "clip", pollTimer = null, editing = null, studioPairs = {};
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtDur = s => { s = Math.round(s * 10) / 10; const m = Math.floor(s / 60); return m ? `${m}:${(s % 60).toFixed(1).padStart(4, "0")}` : `${s.toFixed(1)} s`; };
+const fmtTime = s => { const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = (s % 60).toFixed(1).padStart(4, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`; };
+const fmtUptime = s => { const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h} h ${m} min` : m ? `${m} min` : `${Math.floor(s)} s`; };
+
+function msg(id, text, kind = "") { const el = $(id); el.className = "msg " + kind; el.textContent = text || ""; }
+
+async function api(method, url, body) {
+  const opts = {method, headers: {...H}};
+  if (body !== undefined) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
+  const r = await fetch(url, opts);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+  return data;
+}
+
+// Upload a file as the raw request body, with progress (fetch can't report upload progress).
+function upload(method, url, file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url);
+    for (const [k, v] of Object.entries(H)) xhr.setRequestHeader(k, v);
+    xhr.setRequestHeader("X-Filename", encodeURIComponent(file.name));
+    xhr.upload.onprogress = e => e.lengthComputable && onProgress && onProgress(e.loaded / e.total);
+    xhr.onload = () => {
+      let data = {}; try { data = JSON.parse(xhr.responseText); } catch {}
+      xhr.status < 300 ? resolve(data) : reject(new Error(data.error || `HTTP ${xhr.status}`));
+    };
+    xhr.onerror = () => reject(new Error("network error"));
+    xhr.send(file);
+  });
+}
+
+// ---------- tabs ----------
+function showTab(name) {
+  for (const t of ["studio", "onair"]) {
+    $("view-" + t).classList.toggle("hidden", t !== name);
+    const b = $("tab-" + t); if (b) b.classList.toggle("active", t === name);
+  }
+  try { localStorage.setItem("sj-tab", name); } catch {}
+  clearInterval(pollTimer);
+  if (name === "studio") loadStudio();
+  else { loadOnAir(); pollTimer = setInterval(loadOnAir, 2000); }
+}
+
+async function init() {
+  info = await api("GET", "/api/info");
+  const tabs = [];
+  if (info.studio) tabs.push(["studio", "Studio"]);
+  if (info.onair) tabs.push(["onair", "On Air"]);
+  $("tabs").innerHTML = tabs.map(([k, l]) => `<button id="tab-${k}" onclick="showTab('${k}')">${l}</button>`).join("");
+  $("studio-path").textContent = info.studio_library ? `Folder: ${info.studio_library} · ${info.studio_rate / 1000} kHz` + (info.shared_library ? " (the same one On Air uses: changes go live immediately)" : "") : "";
+  $("onair-path").textContent = info.onair_library ? `Folder: ${info.onair_library} · ${info.onair_rate / 1000} kHz` : "";
+  let saved = null; try { saved = localStorage.getItem("sj-tab"); } catch {}
+  showTab(tabs.some(t => t[0] === saved) ? saved : tabs[0][0]);
+}
+
+// ---------- library import/export ----------
+function download(section, sources) {
+  location.href = `/api/${section}/export?sources=${sources ? 1 : 0}`;
+}
+
+async function importLib(section, input) {
+  const file = input.files[0]; input.value = "";
+  if (!file) return;
+  if (!confirm(`Replace the whole library with the contents of "${file.name}"? The current one is kept as a .bak copy.`)) return;
+  const id = section + "-lib-msg";
+  try {
+    const r = await upload("POST", `/api/${section}/import`, file, p => msg(id, `Uploading ${Math.round(p * 100)}%…`));
+    msg(id, `Library imported: ${r.pairs} pair(s).`, "ok");
+    section === "studio" ? loadStudio() : loadOnAir();
+  } catch (e) { msg(id, e.message, "error"); }
+}
+
+// ---------- Studio ----------
+function setMode(m) {
+  mode = m;
+  $("mode-clip").classList.toggle("on", m === "clip");
+  $("mode-episode").classList.toggle("on", m === "episode");
+  document.querySelectorAll(".episode-only").forEach(el => el.classList.toggle("hidden", m !== "episode"));
+  $("new-file-label").textContent = m === "clip" ? "Target audio (already cut)" : "Whole episode";
+}
+
+async function createPair() {
+  const file = $("new-file").files[0], repl = $("new-repl").files[0];
+  if (!file) return msg("new-msg", "Choose the audio file.", "error");
+  const q = new URLSearchParams({name: $("new-name").value, tau: $("new-tau").value, head_s: $("new-head").value});
+  if (mode === "episode") {
+    if (!$("new-start").value || !$("new-end").value) return msg("new-msg", "Give the start and end of the target.", "error");
+    q.set("start", $("new-start").value); q.set("end", $("new-end").value);
+  }
+  const bar = $("new-progress"), go = $("new-go");
+  bar.classList.remove("hidden"); go.disabled = true;
+  const setBar = p => bar.firstElementChild.style.width = `${Math.round(p * 100)}%`;
+  try {
+    msg("new-msg", "Uploading the target…");
+    const r = await upload("POST", "/api/studio/pairs?" + q, file, p => { setBar(p * (repl ? 0.5 : 1)); if (p >= 1) msg("new-msg", "Analysing…"); });
+    const notes = r.warnings || [];
+    if (repl) {
+      msg("new-msg", "Uploading the replacement…");
+      await upload("PUT", `/api/studio/pairs/${r.pair.id}/replacement`, repl, p => setBar(0.5 + p / 2));
+    }
+    setBar(1);
+    for (const id of ["new-name", "new-file", "new-repl", "new-start", "new-end"]) $(id).value = "";
+    msg("new-msg", `Created "${r.pair.name}" (${fmtDur(r.pair.duration_s)}).` + (notes.length ? " Warning: " + notes.join("; ") : ""), notes.length ? "warn" : "ok");
+    loadStudio();
+  } catch (e) { msg("new-msg", e.message, "error"); }
+  finally { go.disabled = false; setTimeout(() => bar.classList.add("hidden"), 800); }
+}
+
+async function loadStudio() {
+  try {
+    const {pairs} = await api("GET", "/api/studio/pairs");
+    studioPairs = Object.fromEntries(pairs.map(p => [p.id, p]));
+    const sel = $("cal-pair"), prev = sel.value;
+    sel.innerHTML = `<option value="all">All pairs</option>` + pairs.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("");
+    if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+    $("studio-empty").classList.toggle("hidden", pairs.length > 0);
+    $("studio-pairs").innerHTML = pairs.map(p => `
+      <tr>
+        <td><b>${esc(p.name)}</b><div class="sub">${esc(p.source_label || p.id)}</div>
+            ${p.source ? `<button class="link" onclick="play(this, 'studio', '${p.id}', 'target')">▶ play target</button>` : ""}</td>
+        <td class="num">${fmtDur(p.duration_s)}</td>
+        <td class="num">${p.template_error ? '<span class="pill bad">unreadable template</span>' :
+            `${p.head_used_s} s${p.head_offset_used_s ? ` from +${p.head_offset_used_s} s` : ""}<div class="sub">recognised after ~${p.latency_s} s</div>`}</td>
+        <td class="num">${p.tau.toFixed(2)}</td>
+        <td>${p.replacement ? `${esc(p.replacement_label || "yes")}<br><button class="link" onclick="play(this, 'studio', '${p.id}', 'replacement')">▶ play</button>` : '<span class="sub">silence</span>'}</td>
+        <td>${p.enabled ? '<span class="pill ok">enabled</span>' : '<span class="pill">disabled</span>'}</td>
+        <td class="nowrap"><button class="link" onclick="edit('${p.id}')">Edit</button>
+            <button class="link" onclick="calibrateFor('${p.id}')">Calibrate</button>
+            <button class="link danger" onclick="removePair('${p.id}')">Delete</button></td>
+      </tr>
+      <tr class="${editing === p.id ? "" : "hidden"}" id="edit-${p.id}"><td colspan="7">${editorHtml(p)}</td></tr>`).join("");
+  } catch (e) { msg("studio-lib-msg", e.message, "error"); }
+}
+
+function editorHtml(p) {
+  const off = p.head_offset === "auto" ? "auto" : p.head_offset;
+  return `<div class="editor">
+    <div class="grid">
+      <label class="field">Name<input type="text" id="e-name-${p.id}" value="${esc(p.name)}"></label>
+      <label class="field">Match threshold τ<input type="number" id="e-tau-${p.id}" value="${p.tau}" min="0.05" max="1" step="0.01"></label>
+      <label class="field">Head (s)<input type="number" id="e-head-${p.id}" value="${p.head_s}" min="0.5" max="30" step="0.5"></label>
+      <label class="field">Head start (s from the target start, or "auto")<input type="text" id="e-off-${p.id}" value="${off}"></label>
+      <label class="field">New replacement<input type="file" id="e-repl-${p.id}" accept="audio/*"></label>
+    </div>
+    <div class="sub mt-s">τ: higher = fewer false cuts, lower = fewer missed targets. Changing the head or its start rebuilds the template from the source audio${p.source ? "" : " (not available in this library)"}.</div>
+    <div class="row mt">
+      <button class="btn primary" onclick="saveEdit('${p.id}')">Save</button>
+      ${p.replacement ? `<button class="btn" onclick="removeRepl('${p.id}')">Remove replacement (silence)</button>` : ""}
+      <button class="btn" onclick="edit(null)">Cancel</button>
+    </div>
+    <div class="msg" id="e-msg-${p.id}"></div></div>`;
+}
+
+function edit(id) { editing = id; loadStudio(); }
+
+// ---------- calibration ----------
+function calibrateFor(id) {
+  $("cal-pair").value = id;
+  $("cal-panel").scrollIntoView({behavior: "smooth"});
+}
+
+async function runCalibration() {
+  const file = $("cal-file").files[0];
+  if (!file) return msg("cal-msg", "Choose the episode file.", "error");
+  const bar = $("cal-progress"), go = $("cal-go");
+  bar.classList.remove("hidden"); go.disabled = true; $("cal-results").innerHTML = "";
+  try {
+    msg("cal-msg", "Uploading the episode…");
+    const r = await upload("POST", "/api/studio/calibrate?pair=" + encodeURIComponent($("cal-pair").value), file, p => {
+      bar.firstElementChild.style.width = `${Math.round(p * 100)}%`;
+      if (p >= 1) msg("cal-msg", "Analysing (a long episode takes a while)…");
+    });
+    msg("cal-msg", `Episode analysed: ${fmtTime(r.duration_s)}.`, "ok");
+    $("cal-results").innerHTML = r.results.map(calibrationHtml).join("");
+  } catch (e) { msg("cal-msg", e.message, "error"); }
+  finally { go.disabled = false; bar.classList.add("hidden"); }
+}
+
+function calibrationHtml(c) {
+  if (c.error) return `<div class="cal-result"><h3>${esc(c.name)}</h3><div class="msg error">${esc(c.error)}</div></div>`;
+  const good = c.margin >= 0.15 && c.weakest >= 0.7;
+  return `<div class="cal-result">
+    <h3>${esc(c.name)}</h3>
+    <div>Found <b>${c.occurrences}×</b>, weakest match <b>${c.weakest.toFixed(3)}</b>${c.suggested_tau === null ? "" :
+      `; best score elsewhere <b>${c.background.toFixed(3)}</b> — margin <span class="pill ${good ? "ok" : "warn"}">${c.margin.toFixed(3)}</span>`}</div>
+    ${c.notes.map(n => `<div class="msg warn">${esc(n)}</div>`).join("")}
+    <div class="table-wrap mt-s"><table>
+      <thead><tr><th>Target would start at</th><th>Score</th><th></th></tr></thead>
+      <tbody>${c.matches.map(m => `<tr><td class="num">${fmtTime(m.start_s)}</td><td class="num">${m.score.toFixed(3)}</td>
+        <td>${m.is_target ? '<span class="pill ok">target</span>' : ""}</td></tr>`).join("")}</tbody>
+    </table></div>
+    <div class="row mt">
+      <span>Suggested τ <b>${c.suggested_tau === null ? "—" : c.suggested_tau.toFixed(2)}</b> <span class="sub">(current ${c.tau.toFixed(2)})</span></span>
+      ${c.suggested_tau !== null && Math.abs(c.suggested_tau - c.tau) >= 0.005 && studioPairs[c.id] ?
+        `<button class="btn" onclick="applyTau('${c.id}', ${c.suggested_tau}, this)">Apply τ = ${c.suggested_tau.toFixed(2)}</button>` : ""}
+    </div></div>`;
+}
+
+async function applyTau(id, tau, btn) {
+  btn.disabled = true;
+  try { await api("PATCH", `/api/studio/pairs/${id}`, {tau}); btn.textContent = "Applied"; loadStudio(); }
+  catch (e) { btn.disabled = false; alert(e.message); }
+}
+
+async function saveEdit(id) {
+  const off = $(`e-off-${id}`).value.trim();
+  const body = {name: $(`e-name-${id}`).value, tau: parseFloat($(`e-tau-${id}`).value), head_s: parseFloat($(`e-head-${id}`).value),
+                head_offset: off === "" || off === "auto" ? "auto" : parseFloat(off.replace(",", "."))};
+  try {
+    const r = await api("PATCH", `/api/studio/pairs/${id}`, body);
+    const repl = $(`e-repl-${id}`).files[0];
+    if (repl) await upload("PUT", `/api/studio/pairs/${id}/replacement`, repl, p => msg(`e-msg-${id}`, `Uploading replacement ${Math.round(p * 100)}%…`));
+    editing = null; await loadStudio();
+    if (r.warnings && r.warnings.length) alert("Warning: " + r.warnings.join("; "));
+  } catch (e) { msg(`e-msg-${id}`, e.message, "error"); }
+}
+
+async function removeRepl(id) {
+  try { await api("DELETE", `/api/studio/pairs/${id}/replacement`); loadStudio(); }
+  catch (e) { msg(`e-msg-${id}`, e.message, "error"); }
+}
+
+async function removePair(id) {
+  if (!confirm(`Delete "${studioPairs[id].name}" with its template and replacement?`)) return;
+  try { await api("DELETE", `/api/studio/pairs/${id}`); if (editing === id) editing = null; loadStudio(); }
+  catch (e) { msg("studio-lib-msg", e.message, "error"); }
+}
+
+function play(btn, section, id, which) {
+  const next = btn.nextElementSibling;
+  if (next && next.tagName === "AUDIO") { next.remove(); return; }
+  const a = document.createElement("audio");
+  a.controls = true; a.autoplay = true; a.src = `/api/${section}/pairs/${id}/audio/${which}`;
+  btn.after(a);
+}
+
+// ---------- On Air ----------
+const STATES = {
+  running: ["On air", "ok"], starting: ["Starting…", "warn"],
+  crashed: ["Crashed: restarting…", "bad"], stopped: ["Stopped: the radio is silent", "bad"],
+};
+
+const MODE_NOTES = {
+  replace: "Recognised targets are replaced.",
+  report: "Targets are recognised and listed below, but not cut: the radio plays untouched.",
+  passthrough: "Recognition is off: the radio is copied to the output exactly as it arrives, only delayed.",
+};
+
+async function loadOnAir() {
+  let s;
+  try { s = await api("GET", "/api/onair/status"); }
+  catch (e) { $("r-state").textContent = "Server unreachable"; $("r-dot").className = "dot bad"; return; }
+  const [label, kind] = STATES[s.state] || [s.state, ""];
+  $("r-state").textContent = label; $("r-dot").className = "dot " + kind;
+  for (const m in MODE_NOTES) $("r-mode-" + m).classList.toggle("on", s.mode === m);
+  $("r-mode-note").textContent = MODE_NOTES[s.mode] || "";
+
+  const d = s.daemon;
+  const stats = d ? [
+    ["Uptime", fmtUptime(d.uptime_s)], ["Delay", `${d.delay_s} s`], ["Buffer", `${d.fill_s} s`],
+    ["Pairs loaded", d.active_targets.length], ["Underruns", d.underruns], ["Xruns in/out", `${d.xruns_in}/${d.xruns_out}`],
+    ["Drift corrections", d.drift_corrections], ["Capture errors", d.capture_errors ?? 0], ["Restarts", s.restarts],
+  ] : [["Restarts", s.restarts], ["Last exit", s.last_exit || "—"]];
+  $("r-stats").innerHTML = stats.map(([k, v]) => `<div class="stat"><b>${esc(v)}</b><span>${k}</span></div>`).join("");
+  msg("r-msg", d && d.last_error ? d.last_error : "", "error");
+
+  const active = new Set(d ? d.active_targets : []);
+  if (s.library === null) {
+    $("onair-pairs").innerHTML = "";
+    $("onair-nolib").textContent = 'The config has no library (library = "..."): pairs can\'t be managed here.';
+  } else {
+    $("onair-nolib").textContent = s.library.length ? "" : "Empty library: import one below.";
+    $("onair-pairs").innerHTML = s.library.map(p => `
+      <tr><td><input type="checkbox" ${p.enabled ? "checked" : ""} onchange="togglePair('${p.id}', this.checked, this)"></td>
+          <td>${esc(p.name)}</td><td>${p.has_replacement ? "yes" : '<span class="sub">silence</span>'}</td>
+          <td>${!d ? "—" : active.has(p.id) ? '<span class="pill ok">yes</span>' : '<span class="pill">no</span>'}</td></tr>`).join("");
+  }
+
+  const hist = d ? d.history.slice().reverse() : [];
+  $("onair-history-empty").classList.toggle("hidden", hist.length > 0);
+  $("onair-history").innerHTML = hist.map(h => `
+    <tr><td class="num">${new Date(h.time * 1000).toLocaleString()}</td><td>${esc(h.name)}</td>
+        <td class="num">${h.score.toFixed(3)}</td>
+        <td>${h.mode === "report" ? '<span class="pill warn">reported only</span>' : h.leak_s ? `<span class="pill warn">cut, ${h.leak_s} s heard</span>` : '<span class="pill ok">cut</span>'}</td></tr>`).join("");
+
+  const log = $("r-log"), atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 20;
+  log.textContent = s.log.join("\n");
+  if (atBottom) log.scrollTop = log.scrollHeight;
+}
+
+async function onairAction(action) {
+  try { await api("POST", `/api/onair/${action}`); } catch (e) { msg("r-msg", e.message, "error"); }
+  loadOnAir();
+}
+
+async function setOnAirMode(mode) {
+  try { await api("POST", "/api/onair/mode", {mode}); } catch (e) { msg("r-msg", e.message, "error"); }
+  loadOnAir();
+}
+
+async function togglePair(id, enabled, box) {
+  box.disabled = true;
+  try { await api("PATCH", `/api/onair/pairs/${id}`, {enabled}); }
+  catch (e) { box.checked = !enabled; msg("r-msg", e.message, "error"); }
+  finally { box.disabled = false; }
+}
+
+init().catch(e => { document.querySelector("main").innerHTML = `<section class="panel msg error">${esc(e.message)}</section>`; });
+</script>
+</body>
+</html>

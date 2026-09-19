@@ -1,0 +1,33 @@
+# StreamJanitor configuration (`streamjanitor init` writes this file).
+# Relative paths are resolved from this file's directory.
+
+# Target/replacement pairs, managed with the web interface (Studio export -> On Air import).
+library = "library"
+
+[audio]
+# Mopidy plays into the loopback (hw:Loopback,0); we capture its other end.
+input_device = "plughw:CARD=Loopback,DEV=1"
+# The S/PDIF HAT: find its name with `aplay -l` (the word after "card N:").
+output_device = "plughw:CARD=sndrpihifiberry,DEV=0"
+sample_rate = 96000        # 96000 or 48000: the rate Mopidy's chain forces; the library must match
+channels = 2
+delay_s = 4.0              # must exceed the "recognised after ~N s" shown in the Studio, for zero leak
+period_size = 1024
+alsa_latency_ms = 100      # ALSA buffer; the period is a quarter of it (25 ms). With the loopback clocked
+                           # by the HAT, Mopidy's alsasink latency-time must equal that period (25000).
+crossfade_ms = 20.0
+
+[detector]
+energy_gate = 0.003        # frame RMS below this counts as silence
+min_voiced = 0.5           # a window needs this fraction of non-silent frames to be scored
+peak_hold_ms = 100.0
+
+# Targets can also be listed by hand, in addition to the library
+# (templates from `streamjanitor precompute`):
+# [[targets]]
+# file = "targets/jingle.npz"
+# name = "Jingle"
+# replace = "replacements/chime.wav"   # omit or "" for silence; played from the target start
+# tau = 0.6                            # from `streamjanitor calibrate`
+# duration_s = 30.0                    # override the duration measured by precompute
+# enabled = false
