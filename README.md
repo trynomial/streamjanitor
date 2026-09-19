@@ -37,7 +37,7 @@ Mopidy ──▶ hw:Loopback,0 ═ loopback ═ hw:Loopback,1 ──▶ streamja
 ## How recognition works
 
 - **Template ("head")**: `precompute` keeps only the first few seconds of the target (default 3 s,
-  after any leading silence) as log-mel features[2], plus the target's total duration. Size: a few KB.
+  after any leading silence) as log-mel features[^2], plus the target's total duration. Size: a few KB.
 - **Live**: every 20 ms the last 3 s of the stream are compared with each head (mean cosine
   similarity of the frames). The score peaks sharply when the stream lines up with the head, and
   the peak position gives the exact sample where the target started. The end is start + duration.
