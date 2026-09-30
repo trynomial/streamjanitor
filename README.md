@@ -117,16 +117,18 @@ the Pi 3's four cores; Mopidy runs on the others.
 
 ## Installation
 
-StreamJanitor is installed as a [uv](https://docs.astral.sh/uv/) tool, from this repository
-(a git URL or a local checkout). uv brings its own Python, so the system's doesn't matter.
+StreamJanitor needs Python 3.11 or newer and is installed with pip into a `.venv` in the
+checkout of this repository.
 
 ### PC (Studio)
 
 Needs `ffmpeg` (`sudo apt install ffmpeg`, `brew install ffmpeg`, ...), then:
 
 ```bash
-uv tool install git+https://github.com/trynomial/streamjanitor
-streamjanitor web --studio
+git clone https://github.com/trynomial/streamjanitor && cd streamjanitor
+python3 -m venv .venv
+.venv/bin/pip install -e .
+.venv/bin/streamjanitor web --studio
 ```
 
 and open http://127.0.0.1:8080/. The Studio library lives in `~/.local/share/streamjanitor/studio`
@@ -142,8 +144,9 @@ your normal user:
 git clone https://github.com/trynomial/streamjanitor && streamjanitor/deploy/install-pi.sh
 ```
 
-It installs uv and streamjanitor, asks which sound card is the HAT, sets up the ALSA loopback
-clocked by the HAT, writes `~/.config/streamjanitor/config.toml`, installs and enables the
+It creates `.venv` in the checkout and installs streamjanitor there (Debian needs
+`python3-venv`), asks which sound card is the HAT, sets up the ALSA loopback clocked by the
+HAT, writes `~/.config/streamjanitor/config.toml`, installs and enables the
 `streamjanitor` systemd service (web interface on port 8084, whole LAN), and points Mopidy at
 the loopback (asking first, with a backup of `mopidy.conf`), keeping your own output chain and
 its sample rate (`--rate 96000|48000` to choose). 
@@ -159,7 +162,7 @@ Running it again keeps the installed port and address.
 
 - **Update**: `git pull` and run the installer again (config and library are kept).
 - **Uninstall**: `deploy/install-pi.sh --uninstall` removes the service, the loopback and
-  the program, and restores Mopidy's config; reboot afterwards.
+  the program (`.venv`), and restores Mopidy's config; reboot afterwards.
 - **Logs**: the On Air page, or `journalctl -u streamjanitor -f`.
 
 The loopback is clocked by the HAT (`timer_source`), so every device on it must use the HAT's
@@ -254,7 +257,7 @@ equal-power crossfades (`crossfade_ms`).
 ## Tests
 
 ```bash
-uv run python -m unittest discover -s tests -t .
+.venv/bin/python -m unittest discover -s tests -t .
 ```
 
 `tests/test_pipeline.py` runs the whole chain on synthetic audio and checks every output sample.

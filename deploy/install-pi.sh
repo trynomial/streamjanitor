@@ -42,6 +42,8 @@ ALOOP_CONF=/etc/modprobe.d/snd-aloop.conf
 ALOOP_LOAD=/etc/modules-load.d/snd-aloop.conf
 MOPIDY_CONF=/etc/mopidy/mopidy.conf
 MOPIDY_BACKUP=/etc/mopidy/mopidy.conf.streamjanitor-backup
+VENV="$REPO_DIR/.venv"
+BIN="$VENV/bin/streamjanitor"
 
 usage() { sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 
@@ -100,9 +102,6 @@ ask() {  # ask "question" default(y|n) -> returns 0 for yes
     [[ "$answer" =~ ^[Yy] ]]
 }
 
-uv_bin() {
-    command -v uv 2>/dev/null || { [[ -x "$HOME/.local/bin/uv" ]] && echo "$HOME/.local/bin/uv"; } || true
-}
 
 # The `output` value of Mopidy's [audio] section in a config file (continuation lines joined).
 mopidy_output_of() {
@@ -157,10 +156,9 @@ if [[ $UNINSTALL -eq 1 ]]; then
         say "Restoring Mopidy's original config"
         run sudo mv "$MOPIDY_BACKUP" "$MOPIDY_CONF"
     fi
-    UV="$(uv_bin)"
-    if [[ -n "$UV" ]]; then
-        say "Uninstalling the program"
-        run "$UV" tool uninstall streamjanitor || true
+    if [[ -d "$VENV" ]]; then
+        say "Removing the program ($VENV)"
+        run rm -rf "$VENV"
     fi
     say "Done. Config and library were kept in ~/.config/streamjanitor and ~/.local/share/streamjanitor."
     say "Reboot to unload the loopback and restart Mopidy on the HAT: sudo reboot"
@@ -180,22 +178,17 @@ fi
 
 # --- 1. program ---
 
-UV="$(uv_bin)"
-if [[ -z "$UV" ]]; then
-    say "Installing uv (Python package manager)"
-    command -v curl >/dev/null || die "curl is needed to install uv: sudo apt install curl"
-    if [[ $DRY_RUN -eq 1 ]]; then
-        echo "[dry-run] curl -LsSf https://astral.sh/uv/install.sh | sh"
-        UV="$HOME/.local/bin/uv"
-    else
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        UV="$HOME/.local/bin/uv"
-    fi
+python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' \
+    || die "Python 3.11 or newer is needed (found $(python3 --version 2>&1))"
+if [[ ! -x "$VENV/bin/python" ]]; then
+    say "Creating the virtual environment $VENV"
+    python3 -c 'import venv, ensurepip' 2>/dev/null \
+        || die "Python's venv module is missing: sudo apt install python3-venv"
+    run python3 -m venv "$VENV"
 fi
 
 say "Installing streamjanitor from $SOURCE"
-run "$UV" tool install --force --reinstall "$SOURCE"
-BIN="$("$UV" tool dir --bin 2>/dev/null || echo "$HOME/.local/bin")/streamjanitor"
+run "$VENV/bin/pip" install --upgrade "$SOURCE"
 [[ $DRY_RUN -eq 1 || -x "$BIN" ]] || die "streamjanitor was not installed at $BIN"
 
 # --- 2. HAT ---
